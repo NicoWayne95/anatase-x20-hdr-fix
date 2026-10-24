@@ -38,7 +38,7 @@ To check which installer version you have, run `bash X20-HDR-Backport-Installer.
 
 ## Installation
 
-Download `X20-HDR-Backport-Installer.sh` into `~/Downloads`.
+Download `X20-HDR-Backport-Installer.sh` and save it in `~/Downloads`.
 
 Open the **Fedora Space** and build the patch:
 
