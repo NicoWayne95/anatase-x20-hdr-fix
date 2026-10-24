@@ -61,7 +61,8 @@ Confirm the installation prompt with `YES`.
 
 ### Enable HDR in KDE
 
-Go to **System Settings > Display & Monitor > Display Configuration**. Select the internal display, enable **HDR** and **Wide Color Gamut**, then calibrate HDR.
+Go to **System Settings > Display & Monitor > Display Configuration**. Select the internal display, enable **HDR** and **Wide Color Gamut**, then calibrate HDR. 
+Set the Brightness to 1400 nits.
 
 Check the result with:
 
