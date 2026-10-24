@@ -19,6 +19,19 @@ This script backports eight upstream HDR-related fixes while keeping the existin
 
 I also tested native HDR games using Windows as a comparison. **The confirmed improvement is correct HDR detection and calibration in KDE.** This patch alone does not guarantee that Game Mode's brightness and colors will match Windows in every game.
 
+### SDR games with HDR enabled in KDE
+
+There is another noticeable improvement in KDE Desktop Mode: **SDR games can now be displayed through KDE's HDR output without any special Steam launch options.** On my X20, **Dead Space 2**, which does not support native HDR, looks noticeably brighter when I play it with HDR enabled in KDE. This was immediately visible during testing.
+
+The technical distinction matters:
+
+- **The patch does not convert SDR games to HDR.** It fixes detection of the OLED panel's HDR capabilities, allowing KDE to enable HDR output in the first place.
+- **Wayland does not perform Auto HDR by itself.** It provides color-management interfaces; KDE's **KWin compositor** handles how SDR content is mapped and displayed when HDR output is active.
+- **Brighter SDR is not proof of Auto HDR.** KDE can adjust the appearance and reference brightness of SDR content within an HDR output, but that is different from generating additional HDR highlights through inverse tone mapping.
+- The appearance of SDR content depends on KDE's HDR calibration and SDR brightness settings. The brighter image is an observation from my X20, not a measured increase in dynamic range.
+
+This explains why fixing HDR detection can also improve the experience with SDR games in KDE, even though the games themselves still render in SDR. **Steam Game Mode uses Gamescope instead of KWin**, so its SDR brightness and color handling must be tested separately. Gamescope ITM, which aims to expand SDR content into HDR, is not part of this library backport.
+
 > **Note:** This script was AI-assisted/vibe-coded and extensively tested on my own X20. It is not an official Anatase fix.
 
 To check which installer version you have, run `bash X20-HDR-Backport-Installer.sh --version`.
@@ -71,6 +84,6 @@ sudo bash ~/Downloads/X20-HDR-Backport-Installer.sh --rollback
 sudo reboot
 ```
 
-This fixes **HDR capability detection in KDE**. Game Mode color and brightness differences may need additional work. Gamescope ITM / Windows-style Auto HDR for SDR games is a separate topic.
+This fixes **HDR capability detection in KDE** and allows KDE to display SDR games through its HDR output once HDR is enabled. Game Mode color and brightness differences may need additional work. Gamescope ITM / Windows-style Auto HDR for SDR games is a separate topic.
 
-Upstream work: [libdisplay-info](https://gitlab.freedesktop.org/emersion/libdisplay-info) · [Fedora backport discussion](https://bugzilla.redhat.com/show_bug.cgi?id=2506542)
+Upstream work: [libdisplay-info](https://gitlab.freedesktop.org/emersion/libdisplay-info) · [Fedora backport discussion](https://bugzilla.redhat.com/show_bug.cgi?id=2506542) · [Wayland color management](https://wayland.freedesktop.org/docs/book/Color.html)
