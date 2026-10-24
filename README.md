@@ -1,90 +1,167 @@
 # Xbox Ally X20 HDR Fix for Anatase OS
 
-An unofficial workaround for incorrect HDR detection on the **ROG Xbox Ally X (X20)** running **Anatase OS**.
+An experimental fix for HDR detection on the ROG Xbox Ally X (X20) running Anatase OS.
 
-**Version:** v0.1.0 (Experimental)
+**Version:** v0.1.0 (experimental)
 
-## The problem
+## Why I made this
 
-HDR wasn't completely broken on my X20, but it wasn't working correctly either:
+HDR wasn't working consistently on my X20.
 
-- **Steam Game Mode:** Native HDR was already available, but the image looked noticeably darker and the colors more washed out than under Windows.
-- **KDE Desktop Mode:** HDR wasn't detected at all. KDE reported `HDR: incapable` and `Wide Color Gamut: incapable`, so I couldn't enable or calibrate it.
+In KDE Desktop Mode, the internal OLED display wasn't recognized as HDR-capable. KDE showed `HDR: incapable` and `Wide Color Gamut: incapable`, so there was no way to enable or calibrate HDR.
 
-The KDE detection issue was traced to `libdisplay-info 0.3.0`, which didn't recognize HDR metadata inside the panel's DisplayID extension. Missing display metadata may also contribute to differences in Game Mode, but that relationship hasn't been isolated or proven yet.
+Steam Game Mode was different. Native HDR already worked there, but games looked darker and less colorful than they did under Windows 11.
 
-## What the fix changes
+The KDE issue came down to `libdisplay-info 0.3.0`. My panel stores its HDR information in DisplayID 2.0 extensions, and that library version wasn't reporting the information KDE needed.
 
-This script backports eight upstream HDR-related fixes while keeping the existing `libdisplay-info.so.3` interface. After installing it, KDE changed from `HDR: incapable` to `HDR: disabled`, meaning HDR was finally recognized and could be enabled. I could then enable Wide Color Gamut and run HDR calibration.
+## Results on my X20
 
-I also tested native HDR games using Windows as a comparison. **The confirmed improvement is correct HDR detection and calibration in KDE.** This patch alone does not guarantee that Game Mode's brightness and colors will match Windows in every game.
+After applying the backport and restarting, KDE changed from reporting HDR as *incapable* to *disabled*. That sounds like a small difference, but it means HDR is now recognized and can actually be enabled.
 
-### SDR games with HDR enabled in KDE
+Here's what I've observed so far:
 
-There is another noticeable improvement in KDE Desktop Mode: **SDR games can now be displayed through KDE's HDR output without any special Steam launch options.** On my X20, **Dead Space 2**, which does not support native HDR, looks noticeably brighter when I play it with HDR enabled in KDE. This was immediately visible during testing.
+- **Native HDR in KDE:** HDR can be enabled and calibrated. Games look noticeably brighter and more vibrant, much closer to what I see under Windows 11.
+- **SDR games in KDE:** Dead Space 2 looks significantly brighter with KDE's HDR output enabled, even without Steam launch options.
+- **Steam Game Mode:** I've also noticed an improvement, but HDR still looks darker and less vibrant than it does in KDE Desktop Mode.
 
-The technical distinction matters:
+One important detail about SDR games: this fix does **not** add Windows-style Auto HDR. Wayland provides the color-management interfaces, and KDE's KWin compositor handles displaying SDR content within an HDR output. A brighter SDR image doesn't necessarily mean the game has gained extra HDR detail.
 
-- **The patch does not convert SDR games to HDR.** It fixes detection of the OLED panel's HDR capabilities, allowing KDE to enable HDR output in the first place.
-- **Wayland does not perform Auto HDR by itself.** It provides color-management interfaces; KDE's **KWin compositor** handles how SDR content is mapped and displayed when HDR output is active.
-- **Brighter SDR is not proof of Auto HDR.** KDE can adjust the appearance and reference brightness of SDR content within an HDR output, but that is different from generating additional HDR highlights through inverse tone mapping.
-- The appearance of SDR content depends on KDE's HDR calibration and SDR brightness settings. The brighter image is an observation from my X20, not a measured increase in dynamic range.
+Game Mode uses Gamescope instead of KWin. Its HDR output and SDR-to-HDR inverse tone mapping (ITM) are separate from this fix. I'm still looking into why its image doesn't quite match KDE.
 
-This explains why fixing HDR detection can also improve the experience with SDR games in KDE, even though the games themselves still render in SDR. **Steam Game Mode uses Gamescope instead of KWin**, so its SDR brightness and color handling must be tested separately. Gamescope ITM, which aims to expand SDR content into HDR, is not part of this library backport.
+## Requirements
 
-> **Note:** This script was AI-assisted/vibe-coded and extensively tested on my own X20. It is not an official Anatase fix.
+This installer is currently limited to the setup I tested:
 
-To check which installer version you have, run `bash X20-HDR-Backport-Installer.sh --version`.
+- An Xbox Ally X20 running Anatase OS.
+- The exact internal-panel EDID used for my testing. The installer checks its SHA-256 hash and stops if it doesn't match.
+- `libdisplay-info 0.3.0` on the Anatase host.
+- A working **Fedora Space** (`fedora` command) for compiling the library.
+- An internet connection to download the original source and upstream patches.
 
-## Installation
+Download `X20-HDR-Backport-Installer.sh` and place it in `~/Downloads`.
 
-Download `X20-HDR-Backport-Installer.sh` and save it in `~/Downloads`.
+Anatase is an immutable system, so **build in Fedora Space and install on the Anatase host**. Don't install the build dependencies directly on the host.
 
-Open the **Fedora Space** and build the patch:
+### Build tools
+
+The build requires GCC, Meson, Ninja, pkg-config, tar, xz, patch, GNU awk, binutils, curl, coreutils and sed. The installer checks for the individual commands it needs before starting.
+
+Install them **inside Fedora Space**, not on Anatase itself:
 
 ```bash
 fedora
-sudo dnf install -y gcc meson ninja-build pkgconf-pkg-config tar xz patch gawk binutils curl
+sudo dnf install -y gcc meson ninja-build pkgconf-pkg-config tar xz patch gawk binutils curl coreutils sed
+```
+
+If `fedora` isn't available, you'll need to set up a Fedora Space in Anatase first.
+
+## Installation
+
+### 1. Build the patched library
+
+Stay in Fedora Space and run:
+
+```bash
 cd ~/Downloads
 bash X20-HDR-Backport-Installer.sh --build
 ```
 
-After `BUILD ERFOLGREICH`, exit the Fedora Space and install it on the **Anatase host**:
+Do **not** use `sudo` for the build.
+
+The script downloads `libdisplay-info 0.3.0`, applies eight upstream fixes, builds the original and patched versions, and checks the result against the X20's EDID.
+
+Wait for:
+
+```text
+BUILD ERFOLGREICH
+```
+
+The compiled files are saved in `~/Downloads/X20-HDR-Backport-Stage`, which is accessible from the Anatase host. The script won't overwrite an existing stage directory.
+
+### 2. Install on Anatase
+
+Leave Fedora Space:
 
 ```bash
 exit
-sudo bash ~/Downloads/X20-HDR-Backport-Installer.sh --install
-reboot
 ```
 
-Confirm the installation prompt with `YES`.
+Back on the **Anatase host**, run:
 
-### Enable HDR in KDE
+```bash
+sudo bash ~/Downloads/X20-HDR-Backport-Installer.sh --install
+```
 
-Go to **System Settings > Display & Monitor > Display Configuration**. Select the internal display, enable **HDR** and **Wide Color Gamut**, then calibrate HDR. 
-Set the Brightness to 1400 nits.
+Type `YES` when prompted. Once the script reports that the installation is active, restart the device:
 
-Check the result with:
+```bash
+sudo reboot
+```
+
+### 3. Enable and calibrate HDR in KDE
+
+Open **System Settings > Display & Monitor > Display Configuration** and select the internal display.
+
+1. Enable **HDR** and **Wide Color Gamut**.
+2. Apply the changes.
+3. Run KDE's HDR calibration.
+
+My panel's EDID reports a peak brightness of roughly **1,405 nits**, so I used around **1,400 nits** as my reference during calibration. That is the value reported by my panel, not a measured brightness guarantee or a setting that everyone should copy blindly. Use KDE's calibration preview to check the result.
+
+### 4. Check the result
+
+On the Anatase host:
+
+```bash
+bash ~/Downloads/X20-HDR-Backport-Installer.sh --status
+```
+
+In a KDE Desktop session, you can also run:
 
 ```bash
 kscreen-doctor -o | grep -iE 'HDR:|Wide Color Gamut:'
 ```
 
-## Safety and rollback
+Before you enable the options in KDE, they may show as `disabled`. Once enabled, they should report:
 
-- Downloads and upstream patches are checked with SHA-256 hashes.
-- The original and patched libraries are built separately and checked for exported-symbol compatibility.
-- The original files under `/usr` are **not overwritten**. The patched library is placed under `/var` and activated through `/etc`.
-- Installation requires `sudo` and explicit confirmation.
-- The script currently accepts only `libdisplay-info 0.3.0` and **my specific X20 EDID**. Other panels or firmware revisions may be rejected intentionally.
+```text
+HDR: enabled
+Wide Color Gamut: enabled
+```
 
-This is still a **system-wide library override** and is not risk-free. If something goes wrong, run the following on the Anatase host (from a TTY if necessary):
+## What the installer changes
+
+The installer is deliberately conservative:
+
+- It verifies the downloaded source and patches using fixed SHA-256 checksums.
+- It builds the original and patched libraries separately and checks that the existing exported symbols are still present.
+- It confirms that the patched library detects HDR PQ and BT.2020 in my original EDID where the unpatched version did not.
+- It puts the new library under `/var/lib/x20-hdr-backport` and selects it through `/etc/ld.so.conf.d/00-x20-hdr-backport.conf`.
+- It does **not** overwrite the original library files in `/usr`.
+
+This is still a **system-wide shared-library override**, so it isn't risk-free. An incompatible library could affect KDE or other programs that load it.
+
+### Rollback
+
+If you run into problems, return to the Anatase host and use:
 
 ```bash
 sudo bash ~/Downloads/X20-HDR-Backport-Installer.sh --rollback
 sudo reboot
 ```
 
-This fixes **HDR capability detection in KDE** and allows KDE to display SDR games through its HDR output once HDR is enabled. Game Mode color and brightness differences may need additional work. Gamescope ITM / Windows-style Auto HDR for SDR games is a separate topic.
+If KDE won't start, you may need to do this from a text console (TTY). The rollback removes the loader configuration and restores the original library selection. It leaves the compiled library in `/var` rather than deleting it.
 
-Upstream work: [libdisplay-info](https://gitlab.freedesktop.org/emersion/libdisplay-info) · [Fedora backport discussion](https://bugzilla.redhat.com/show_bug.cgi?id=2506542) · [Wayland color management](https://wayland.freedesktop.org/docs/book/Color.html)
+## Notes
+
+I built this installer with help from ChatGPT. Some of the code was AI-generated, but I've tested the build and installation process, HDR detection, and games on my own X20. It is an unofficial workaround, not an Anatase release or a general fix for every X20 panel.
+
+The remaining Game Mode brightness and color differences are still being investigated. This backport fixes KDE's HDR capability detection; it doesn't patch Gamescope.
+
+Installer version:
+
+```bash
+bash X20-HDR-Backport-Installer.sh --version
+```
+
+Related projects: [libdisplay-info](https://gitlab.freedesktop.org/emersion/libdisplay-info) · [Fedora backport discussion](https://bugzilla.redhat.com/show_bug.cgi?id=2506542) · [Wayland color management](https://wayland.freedesktop.org/docs/book/Color.html)
